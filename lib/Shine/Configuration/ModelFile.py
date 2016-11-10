@@ -41,6 +41,7 @@ You can load and save from disk.
 
 import re
 import copy
+import shlex
 
 from ClusterShell.NodeSet import RangeSet
 
@@ -586,6 +587,10 @@ class ModelFile(object):
         for key, values in self._elements.items():
             if len(values):
                 for value in str(values).splitlines():
+                    # Inlined ModelFile: add quotes to string values containing
+                    # spaces
+                    if self._linesep == ' ' and  ' ' in value:
+                        value = '"' + value + '"'
                     elems.append(''.join([key, self._sep, value]))
         return self._linesep.join(elems)
 
@@ -678,10 +683,19 @@ class ModelFile(object):
 
     def parse(self, data):
         """Parse @data based on separators and declared elements."""
-        for line in data.split(self._linesep):
+        if self._linesep == ' ':
+            # Inlined ModelFile: split using shlex to support quotes
+            splitted = shlex.split(data)
+        else:
+            splitted = data.split(self._linesep)
+
+        for line in splitted:
             if line:
                 try:
                     key, value = line.split(self._sep, 1)
+                    if self._linesep == ' ':
+                        # Unquote inlined ModelFile values
+                        value = ' '.join(shlex.split(value))
                 except ValueError:
                     raise ModelFileValueError("Wrong syntax '%s'" % line)
                 try:
